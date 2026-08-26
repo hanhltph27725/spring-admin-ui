@@ -84,7 +84,7 @@ export default function Dashboard() {
           sparkClass="text-success"
         />
         <StatCard
-          label="Inventory Value"
+          label="Recent Inventory"
           value={loading ? null : inventoryValue}
           loading={loading}
           format={(n) => `$${n.toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
@@ -94,7 +94,7 @@ export default function Dashboard() {
           sparkClass="text-warning"
         />
         <StatCard
-          label="Avg. Rating"
+          label="Recent Avg. Rating"
           value={loading ? null : avgRating}
           loading={loading}
           format={(n) => n.toFixed(1)}

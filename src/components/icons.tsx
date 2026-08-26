@@ -106,6 +106,14 @@ export function IconArrowUpDown(p: SVGProps<SVGSVGElement>) {
   )
 }
 
+export function IconChevronDown(p: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...p}>
+      <path d="m6 9 6 6 6-6" />
+    </svg>
+  )
+}
+
 export function IconSun(p: SVGProps<SVGSVGElement>) {
   return (
     <svg {...base} {...p}>

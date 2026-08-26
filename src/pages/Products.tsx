@@ -15,9 +15,11 @@ import {
   IconSearch,
   IconBox,
   IconArrowUpDown,
+  IconChevronDown,
 } from '../components/icons'
 import { productsApi } from '../lib/resources'
 import { ApiError } from '../lib/api'
+import { cn } from '../lib/cn'
 import type { Product } from '../types'
 
 const PAGE_SIZE = 10
@@ -217,18 +219,24 @@ export default function Products() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-border bg-muted/40 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  <Th onClick={() => toggleSort('name')}>Product</Th>
+                <tr className="border-b border-border bg-muted/50 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  <Th sort={sort} col="name" onClick={() => toggleSort('name')}>
+                    Product
+                  </Th>
                   <th className="px-4 py-3">Category</th>
-                  <Th onClick={() => toggleSort('price')}>Price</Th>
-                  <Th onClick={() => toggleSort('stockQuantity')}>Stock</Th>
+                  <Th sort={sort} col="price" onClick={() => toggleSort('price')}>
+                    Price
+                  </Th>
+                  <Th sort={sort} col="stockQuantity" onClick={() => toggleSort('stockQuantity')}>
+                    Stock
+                  </Th>
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
                 {visible.map((p) => (
-                  <tr key={p.id} className="transition-colors hover:bg-muted/40">
+                  <tr key={p.id} className="group transition-colors hover:bg-muted/40">
                     <td className="px-4 py-3">
                       <div className="font-medium">{p.name}</div>
                       <div className="text-xs text-muted-foreground">{p.sku}</div>
@@ -254,7 +262,7 @@ export default function Products() {
                       <StatusBadge active={p.active} />
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex justify-end gap-1">
+                      <div className="flex justify-end gap-1 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
                         <button
                           className="btn-ghost h-8 w-8 rounded-md p-0"
                           onClick={() => openEdit(p)}
@@ -399,15 +407,35 @@ export default function Products() {
   )
 }
 
-function Th({ children, onClick }: { children: React.ReactNode; onClick: () => void }) {
+function Th({
+  children,
+  onClick,
+  sort,
+  col,
+}: {
+  children: React.ReactNode
+  onClick: () => void
+  sort: { key: SortKey; dir: 'asc' | 'desc' }
+  col: SortKey
+}) {
+  const active = sort.key === col
   return (
     <th className="px-4 py-3">
       <button
-        className="inline-flex items-center gap-1 transition-colors hover:text-foreground"
+        className={cn(
+          'group inline-flex items-center gap-1 transition-colors hover:text-foreground',
+          active && 'text-foreground',
+        )}
         onClick={onClick}
       >
         {children}
-        <IconArrowUpDown className="h-3.5 w-3.5 opacity-50" />
+        {active ? (
+          <IconChevronDown
+            className={cn('h-3.5 w-3.5 transition-transform', sort.dir === 'asc' && 'rotate-180')}
+          />
+        ) : (
+          <IconArrowUpDown className="h-3.5 w-3.5 opacity-40 transition-opacity group-hover:opacity-70" />
+        )}
       </button>
     </th>
   )
