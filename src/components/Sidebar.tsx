@@ -19,7 +19,7 @@ export default function Sidebar({ collapsed }: { collapsed: boolean }) {
       <div
         className={cn('flex h-16 items-center gap-2.5 px-4', collapsed && 'justify-center px-0')}
       >
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary/70 text-primary-foreground shadow-sm ring-1 ring-inset ring-white/10">
           <span className="text-lg font-bold">S</span>
         </div>
         {!collapsed && (
@@ -44,7 +44,7 @@ export default function Sidebar({ collapsed }: { collapsed: boolean }) {
             title={collapsed ? label : undefined}
             className={({ isActive }) =>
               cn(
-                'group flex items-center gap-3 rounded-md px-2.5 py-2 text-sm font-medium transition-colors',
+                'group relative flex items-center gap-3 rounded-md px-2.5 py-2 text-sm font-medium transition-colors',
                 collapsed && 'justify-center px-0',
                 isActive
                   ? 'bg-primary/10 text-primary'
@@ -52,8 +52,15 @@ export default function Sidebar({ collapsed }: { collapsed: boolean }) {
               )
             }
           >
-            <Icon className="h-5 w-5 shrink-0" />
-            {!collapsed && label}
+            {({ isActive }) => (
+              <>
+                {isActive && !collapsed && (
+                  <span className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-full bg-primary" />
+                )}
+                <Icon className="h-5 w-5 shrink-0" />
+                {!collapsed && label}
+              </>
+            )}
           </NavLink>
         ))}
       </nav>

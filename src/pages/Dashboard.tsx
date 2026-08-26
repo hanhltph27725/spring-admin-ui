@@ -209,15 +209,20 @@ function StatCard({
   const up = (delta ?? 0) >= 0
   const inner = (
     <>
-      <div className="flex items-start justify-between">
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+      <div className="flex items-center justify-between">
+        <div
+          className={cn(
+            'flex h-9 w-9 items-center justify-center rounded-lg bg-muted',
+            sparkClass ?? 'text-muted-foreground',
+          )}
+        >
           {icon}
         </div>
         {delta != null && (
           <span
             className={cn(
-              'inline-flex items-center gap-1 text-xs font-medium',
-              up ? 'text-success' : 'text-destructive',
+              'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
+              up ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive',
             )}
           >
             {up ? (
@@ -229,23 +234,24 @@ function StatCard({
           </span>
         )}
       </div>
-      <div className="mt-4 text-sm text-muted-foreground">{label}</div>
-      <div className="mt-0.5 text-2xl font-semibold tracking-tight">
+      <div className="mt-4 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+        {label}
+      </div>
+      <div className="mt-1 text-[26px] font-semibold leading-none tracking-tight">
         {loading || value === null ? <Skeleton className="mt-1 h-7 w-24" /> : format(value)}
       </div>
-      <div className="mt-3 h-8">
+      <div className="mt-4 h-8">
         <Sparkline data={spark} className={sparkClass} />
       </div>
     </>
   )
 
-  const cls = 'card p-5 transition-shadow hover:shadow-md'
   return to ? (
-    <Link to={to} className={cls}>
+    <Link to={to} className="stat-card">
       {inner}
     </Link>
   ) : (
-    <div className={cls}>{inner}</div>
+    <div className="stat-card">{inner}</div>
   )
 }
 
