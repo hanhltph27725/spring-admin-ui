@@ -262,7 +262,7 @@ export default function Products() {
                       <StatusBadge active={p.active} />
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex justify-end gap-1 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+                      <div className="flex justify-end gap-1">
                         <button
                           className="btn-ghost h-8 w-8 rounded-md p-0"
                           onClick={() => openEdit(p)}

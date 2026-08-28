@@ -1,11 +1,12 @@
 import { NavLink } from 'react-router-dom'
-import { IconDashboard, IconUsers, IconBox } from './icons'
+import { IconDashboard, IconUsers, IconBox, IconRefresh } from './icons'
 import { cn } from '../lib/cn'
 
 const nav = [
   { to: '/', label: 'Dashboard', icon: IconDashboard, end: true },
   { to: '/users', label: 'Users', icon: IconUsers },
   { to: '/products', label: 'Products', icon: IconBox },
+  { to: '/service-schemas', label: 'Service Schemas', icon: IconRefresh },
 ]
 
 export default function Sidebar({ collapsed }: { collapsed: boolean }) {

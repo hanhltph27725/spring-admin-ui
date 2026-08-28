@@ -1,6 +1,6 @@
-import type { Page } from '../types'
+import type { Page, ServiceSchema } from '../types'
 
-const BASE = '/api'
+const BASE = `${import.meta.env.VITE_API_BASE_URL ?? ''}/api`
 
 export class ApiError extends Error {
   status: number
@@ -63,4 +63,24 @@ export function createResource<T extends { id: number }>(path: string) {
       return fetch(`${url}/count`).then((r) => handle<number>(r))
     },
   }
+}
+
+export function syncServiceSchemas(): Promise<ServiceSchema[]> {
+  return fetch(`${BASE}/service-schemas/sync`).then((r) => handle<ServiceSchema[]>(r))
+}
+
+export async function downloadZip(kind: 'backend' | 'frontend', entityName: string): Promise<void> {
+  const res = await fetch(`${BASE}/code-gen/generate/${kind}/${entityName}`, { method: 'POST' })
+  if (!res.ok) {
+    throw new ApiError(`Download failed (${res.status})`, res.status)
+  }
+  const blob = await res.blob()
+  const objectUrl = window.URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = objectUrl
+  link.download = kind === 'frontend' ? `${entityName}_frontend.zip` : `${entityName}.zip`
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  window.URL.revokeObjectURL(objectUrl)
 }

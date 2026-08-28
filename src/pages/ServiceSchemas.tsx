@@ -4,45 +4,43 @@ import Pagination from '../components/Pagination'
 import Modal from '../components/Modal'
 import Field from '../components/Field'
 import ConfirmDialog from '../components/ConfirmDialog'
-import StatusBadge from '../components/StatusBadge'
 import EmptyState from '../components/EmptyState'
 import { TableSkeleton } from '../components/Skeleton'
 import { useToast } from '../components/Toast'
 import {
   IconPlus,
-  IconEdit,
   IconTrash,
   IconSearch,
-  IconUsers,
+  IconBox,
+  IconRefresh,
+  IconDownload,
   IconArrowUpDown,
   IconChevronDown,
 } from '../components/icons'
-import { usersApi } from '../lib/resources'
-import { ApiError } from '../lib/api'
+import { serviceSchemasApi } from '../lib/resources'
+import { ApiError, downloadZip, syncServiceSchemas } from '../lib/api'
 import { cn } from '../lib/cn'
-import type { User } from '../types'
+import type { ServiceSchema } from '../types'
 
 const PAGE_SIZE = 10
 
-type SortKey = 'username' | 'email' | 'createdAt'
+type SortKey = 'code' | 'entityName' | 'serviceId' | 'createdAt'
 
 const emptyForm = {
-  username: '',
-  email: '',
-  password: '',
-  firstName: '',
-  lastName: '',
-  bio: '',
-  active: true,
+  code: '',
+  entityName: '',
+  serviceId: '',
 }
 
-export default function Users() {
+export default function ServiceSchemas() {
   const toast = useToast()
-  const [rows, setRows] = useState<User[]>([])
+  const [rows, setRows] = useState<ServiceSchema[]>([])
   const [page, setPage] = useState(0)
   const [totalPages, setTotalPages] = useState(0)
   const [totalElements, setTotalElements] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [syncing, setSyncing] = useState(false)
+  const [downloading, setDownloading] = useState<string | null>(null)
   const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' }>({
     key: 'createdAt',
     dir: 'desc',
@@ -50,18 +48,17 @@ export default function Users() {
   const [search, setSearch] = useState('')
 
   const [modalOpen, setModalOpen] = useState(false)
-  const [editing, setEditing] = useState<User | null>(null)
   const [form, setForm] = useState({ ...emptyForm })
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState(false)
 
-  const [deleteTarget, setDeleteTarget] = useState<User | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<ServiceSchema | null>(null)
   const [deleting, setDeleting] = useState(false)
 
   const load = useCallback(
     (signal?: { cancelled: boolean }) => {
       setLoading(true)
-      return usersApi
+      return serviceSchemasApi
         .list({ page, size: PAGE_SIZE, sort: `${sort.key},${sort.dir}` })
         .then((res) => {
           if (signal?.cancelled) return
@@ -90,8 +87,8 @@ export default function Users() {
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase()
     if (!q) return rows
-    return rows.filter((u) =>
-      [u.username, u.email, u.firstName, u.lastName].some((v) => v?.toLowerCase().includes(q)),
+    return rows.filter((s) =>
+      [s.code, s.entityName, s.serviceId].some((v) => v?.toLowerCase().includes(q)),
     )
   }, [rows, search])
 
@@ -102,24 +99,33 @@ export default function Users() {
     setPage(0)
   }
 
-  function openCreate() {
-    setEditing(null)
-    setForm({ ...emptyForm })
-    setErrors({})
-    setModalOpen(true)
+  async function sync() {
+    setSyncing(true)
+    try {
+      const result = await syncServiceSchemas()
+      toast('success', `Synced ${result.length} schemas`)
+      if (page !== 0) setPage(0)
+      else load()
+    } catch (err) {
+      toast('error', (err as Error).message)
+    } finally {
+      setSyncing(false)
+    }
   }
 
-  function openEdit(u: User) {
-    setEditing(u)
-    setForm({
-      username: u.username,
-      email: u.email,
-      password: '',
-      firstName: u.firstName,
-      lastName: u.lastName,
-      bio: u.bio ?? '',
-      active: u.active,
-    })
+  async function download(kind: 'backend' | 'frontend', s: ServiceSchema) {
+    setDownloading(`${kind}:${s.id}`)
+    try {
+      await downloadZip(kind, s.entityName)
+    } catch (err) {
+      toast('error', (err as Error).message)
+    } finally {
+      setDownloading(null)
+    }
+  }
+
+  function openCreate() {
+    setForm({ ...emptyForm })
     setErrors({})
     setModalOpen(true)
   }
@@ -129,23 +135,12 @@ export default function Users() {
     setSaving(true)
     setErrors({})
     try {
-      const payload: Partial<User> = {
-        username: form.username,
-        email: form.email,
-        firstName: form.firstName,
-        lastName: form.lastName,
-        bio: form.bio || undefined,
-        active: form.active,
-      }
-      if (form.password) payload.password = form.password
-
-      if (editing) {
-        await usersApi.update(editing.id, payload)
-        toast('success', 'User updated')
-      } else {
-        await usersApi.create(payload)
-        toast('success', 'User created')
-      }
+      await serviceSchemasApi.create({
+        code: form.code,
+        entityName: form.entityName,
+        serviceId: form.serviceId,
+      })
+      toast('success', 'Schema created')
       setModalOpen(false)
       load()
     } catch (err) {
@@ -163,8 +158,8 @@ export default function Users() {
     if (!deleteTarget) return
     setDeleting(true)
     try {
-      await usersApi.remove(deleteTarget.id)
-      toast('success', 'User deleted')
+      await serviceSchemasApi.remove(deleteTarget.id)
+      toast('success', 'Schema deleted')
       setDeleteTarget(null)
       if (rows.length === 1 && page > 0) setPage(page - 1)
       else load()
@@ -178,12 +173,18 @@ export default function Users() {
   return (
     <div>
       <PageHeader
-        title="Users"
-        subtitle="Manage user accounts"
+        title="Service Schemas"
+        subtitle="Sync entities and download generated code"
         actions={
-          <button className="btn-primary" onClick={openCreate}>
-            <IconPlus className="h-4 w-4" /> New User
-          </button>
+          <>
+            <button className="btn-secondary" onClick={sync} disabled={syncing}>
+              <IconRefresh className={cn('h-4 w-4', syncing && 'animate-spin')} />
+              {syncing ? 'Syncing…' : 'Sync'}
+            </button>
+            <button className="btn-primary" onClick={openCreate}>
+              <IconPlus className="h-4 w-4" /> New Schema
+            </button>
+          </>
         }
       />
 
@@ -201,63 +202,67 @@ export default function Users() {
         </div>
 
         {loading ? (
-          <TableSkeleton rows={8} cols={4} />
+          <TableSkeleton rows={8} cols={5} />
         ) : visible.length === 0 ? (
           <EmptyState
-            icon={<IconUsers className="h-6 w-6" />}
-            title="No users found"
-            message={
-              search ? 'Try a different search term.' : 'Create your first user to get started.'
-            }
+            icon={<IconBox className="h-6 w-6" />}
+            title="No service schemas found"
+            message={search ? 'Try a different search term.' : 'Click Sync to scan entities.'}
           />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/50 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  <Th sort={sort} col="username" onClick={() => toggleSort('username')}>
-                    User
+                  <Th sort={sort} col="code" onClick={() => toggleSort('code')}>
+                    Code
                   </Th>
-                  <Th sort={sort} col="email" onClick={() => toggleSort('email')}>
-                    Email
+                  <Th sort={sort} col="entityName" onClick={() => toggleSort('entityName')}>
+                    Entity Name
                   </Th>
-                  <th className="px-4 py-3">Status</th>
+                  <Th sort={sort} col="serviceId" onClick={() => toggleSort('serviceId')}>
+                    Service ID
+                  </Th>
+                  <Th sort={sort} col="createdAt" onClick={() => toggleSort('createdAt')}>
+                    Created
+                  </Th>
                   <th className="px-4 py-3 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {visible.map((u) => (
-                  <tr key={u.id} className="group transition-colors hover:bg-muted/40">
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
-                          {u.firstName?.[0]}
-                          {u.lastName?.[0]}
-                        </div>
-                        <div>
-                          <div className="font-medium">
-                            {u.firstName} {u.lastName}
-                          </div>
-                          <div className="text-xs text-muted-foreground">@{u.username}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">{u.email}</td>
-                    <td className="px-4 py-3">
-                      <StatusBadge active={u.active} />
+                {visible.map((s) => (
+                  <tr key={s.id} className="group transition-colors hover:bg-muted/40">
+                    <td className="px-4 py-3 font-medium">{s.code}</td>
+                    <td className="px-4 py-3">{s.entityName}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{s.serviceId}</td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {s.createdAt ? (
+                        new Date(s.createdAt).toLocaleDateString()
+                      ) : (
+                        <span className="text-muted-foreground/50">—</span>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex justify-end gap-1">
                         <button
-                          className="btn-ghost h-8 w-8 rounded-md p-0"
-                          onClick={() => openEdit(u)}
-                          title="Edit"
+                          className="btn-ghost h-8 rounded-md px-2"
+                          onClick={() => download('backend', s)}
+                          disabled={downloading === `backend:${s.id}`}
+                          title="Download Backend"
                         >
-                          <IconEdit className="h-4 w-4" />
+                          <IconDownload className="h-4 w-4" /> BE
+                        </button>
+                        <button
+                          className="btn-ghost h-8 rounded-md px-2"
+                          onClick={() => download('frontend', s)}
+                          disabled={downloading === `frontend:${s.id}`}
+                          title="Download Frontend"
+                        >
+                          <IconDownload className="h-4 w-4" /> FE
                         </button>
                         <button
                           className="btn-ghost h-8 w-8 rounded-md p-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                          onClick={() => setDeleteTarget(u)}
+                          onClick={() => setDeleteTarget(s)}
                           title="Delete"
                         >
                           <IconTrash className="h-4 w-4" />
@@ -284,86 +289,48 @@ export default function Users() {
 
       <Modal
         open={modalOpen}
-        title={editing ? 'Edit User' : 'New User'}
+        title="New Schema"
         onClose={() => setModalOpen(false)}
         footer={
           <>
             <button className="btn-secondary" onClick={() => setModalOpen(false)} disabled={saving}>
               Cancel
             </button>
-            <button className="btn-primary" form="user-form" type="submit" disabled={saving}>
-              {saving ? 'Saving…' : editing ? 'Save Changes' : 'Create User'}
+            <button className="btn-primary" form="schema-form" type="submit" disabled={saving}>
+              {saving ? 'Saving…' : 'Create Schema'}
             </button>
           </>
         }
       >
-        <form id="user-form" onSubmit={submit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="First Name" required error={errors.firstName}>
-              <input
-                className="input"
-                value={form.firstName}
-                onChange={(e) => setForm({ ...form, firstName: e.target.value })}
-              />
-            </Field>
-            <Field label="Last Name" required error={errors.lastName}>
-              <input
-                className="input"
-                value={form.lastName}
-                onChange={(e) => setForm({ ...form, lastName: e.target.value })}
-              />
-            </Field>
-          </div>
-          <Field label="Username" required error={errors.username}>
+        <form id="schema-form" onSubmit={submit} className="space-y-4">
+          <Field label="Code" required error={errors.code}>
             <input
               className="input"
-              value={form.username}
-              onChange={(e) => setForm({ ...form, username: e.target.value })}
+              value={form.code}
+              onChange={(e) => setForm({ ...form, code: e.target.value })}
             />
           </Field>
-          <Field label="Email" required error={errors.email}>
+          <Field label="Entity Name" required error={errors.entityName}>
             <input
-              type="email"
               className="input"
-              value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
+              value={form.entityName}
+              onChange={(e) => setForm({ ...form, entityName: e.target.value })}
             />
           </Field>
-          <Field
-            label={editing ? 'Password (leave blank to keep)' : 'Password'}
-            required={!editing}
-            error={errors.password}
-          >
+          <Field label="Service ID" required error={errors.serviceId}>
             <input
-              type="password"
               className="input"
-              value={form.password}
-              onChange={(e) => setForm({ ...form, password: e.target.value })}
+              value={form.serviceId}
+              onChange={(e) => setForm({ ...form, serviceId: e.target.value })}
             />
           </Field>
-          <Field label="Bio" error={errors.bio}>
-            <textarea
-              className="input min-h-[80px] resize-y"
-              value={form.bio}
-              onChange={(e) => setForm({ ...form, bio: e.target.value })}
-            />
-          </Field>
-          <label className="flex items-center gap-2 text-sm text-foreground">
-            <input
-              type="checkbox"
-              className="h-4 w-4 rounded border-input text-primary focus:ring-ring"
-              checked={form.active}
-              onChange={(e) => setForm({ ...form, active: e.target.checked })}
-            />
-            Active
-          </label>
         </form>
       </Modal>
 
       <ConfirmDialog
         open={!!deleteTarget}
-        title="Delete User"
-        message={`Are you sure you want to delete ${deleteTarget?.firstName} ${deleteTarget?.lastName}? This action cannot be undone.`}
+        title="Delete Schema"
+        message={`Are you sure you want to delete "${deleteTarget?.code}"? This action cannot be undone.`}
         loading={deleting}
         onConfirm={confirmDelete}
         onCancel={() => setDeleteTarget(null)}

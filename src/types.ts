@@ -38,3 +38,9 @@ export interface Product extends BaseEntity {
   active: boolean
   rating: number
 }
+
+export interface ServiceSchema extends BaseEntity {
+  code: string
+  entityName: string
+  serviceId: string
+}

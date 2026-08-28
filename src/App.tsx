@@ -8,6 +8,7 @@ import { PageSkeleton } from './components/Skeleton'
 const Dashboard = lazy(() => import('./pages/Dashboard'))
 const Users = lazy(() => import('./pages/Users'))
 const Products = lazy(() => import('./pages/Products'))
+const ServiceSchemas = lazy(() => import('./pages/ServiceSchemas'))
 
 export default function App() {
   return (
@@ -19,6 +20,7 @@ export default function App() {
               <Route path="/" element={<Dashboard />} />
               <Route path="/users" element={<Users />} />
               <Route path="/products" element={<Products />} />
+              <Route path="/service-schemas" element={<ServiceSchemas />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Suspense>
